@@ -8,11 +8,11 @@ A browser-based video call application built from scratch, reproducing the core 
 ### Week 1 — The Foundation
 Goal: two browsers can find each other on the server and join the same room.
 
-- [ ] Initialize the backend: `npm init`, install `express` and `socket.io`
-- [ ] Create `server.js`: HTTP server + Socket.io attached to it
-- [ ] Implement room join logic on the server (`socket.join(roomId)`)
-- [ ] Emit a `user-connected` event to others in the room when a new peer joins
-- [ ] Initialize the frontend: `npm create vite` (Vanilla TypeScript)
+- [x] Initialize the backend: `npm init`, install `express` and `socket.io`
+- [x] Create `server.js`: HTTP server + Socket.io attached to it
+- [x] Implement room join logic on the server (`socket.join(roomId)`)
+- [x] Emit a `user-connected` event to others in the room when a new peer joins
+- [x] Initialize the frontend: `npm create vite` (Vanilla TypeScript)
 - [ ] Install `socket.io-client` on the frontend
 - [ ] Connect the frontend to the backend and join a room on page load
 - [ ] Listen for `user-connected` on the frontend and log it to confirm it works

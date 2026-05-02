@@ -17,5 +17,6 @@ io.on('connection', (socket) => {
     socket.on('join-room', (room) => {
         socket.join(room);
         socket.to(room).emit('user-connected', socket.id);
+        console.log(`user: ${socket.id} connected to ${room}`)
     })
 })
