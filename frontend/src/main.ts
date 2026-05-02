@@ -3,6 +3,15 @@ import typescriptLogo from './assets/typescript.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import { setupCounter } from './counter.ts'
+import { io } from 'socket.io-client'
+
+const socket = io('http://localhost:3000');
+
+socket.on('user-connected', (socketID) => {
+  console.log("user connected: ", socketID);
+})
+
+socket.emit("join-room", "room-001");
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <section id="center">

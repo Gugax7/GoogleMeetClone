@@ -11,7 +11,11 @@ const server = app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
 })
 
-const io = new Server(server, {});
+const io = new Server(server, {
+    cors: {
+        origin: "http://localhost:3001"
+    }
+})
 
 io.on('connection', (socket) => {
     socket.on('join-room', (room) => {

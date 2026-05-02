@@ -13,9 +13,9 @@ Goal: two browsers can find each other on the server and join the same room.
 - [x] Implement room join logic on the server (`socket.join(roomId)`)
 - [x] Emit a `user-connected` event to others in the room when a new peer joins
 - [x] Initialize the frontend: `npm create vite` (Vanilla TypeScript)
-- [ ] Install `socket.io-client` on the frontend
-- [ ] Connect the frontend to the backend and join a room on page load
-- [ ] Listen for `user-connected` on the frontend and log it to confirm it works
+- [x] Install `socket.io-client` on the frontend
+- [x] Connect the frontend to the backend and join a room on page load
+- [x] Listen for `user-connected` on the frontend and log it to confirm it works
 
 ### Week 2 — The Pain (Video over WebSockets)
 Goal: stream video through the server using canvas frames — deliberately bad, to feel why WebRTC exists.
