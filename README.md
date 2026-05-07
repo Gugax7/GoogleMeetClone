@@ -20,13 +20,13 @@ Goal: two browsers can find each other on the server and join the same room.
 ### Week 2 — The Pain (Video over WebSockets)
 Goal: stream video through the server using canvas frames — deliberately bad, to feel why WebRTC exists.
 
-- [ ] Capture camera and microphone with `getUserMedia`
-- [ ] Display local video in a `<video autoplay muted>` tag
-- [ ] Use a hidden `<canvas>` to capture frames at ~10fps and convert to Base64 (`toDataURL`)
-- [ ] Emit the Base64 string to the server via `socket.emit`
-- [ ] Server relays the string to the other peer in the room
-- [ ] Receiver sets the Base64 string as the `src` of an `<img>` tag
-- [ ] Observe the lag, frame drops, and CPU spike — this is the point
+- [x] Capture camera with `getUserMedia`
+- [x] Display local video in a `<video autoplay muted>` tag
+- [x] Use a hidden `<canvas>` to capture frames at ~10fps and convert to Base64 (`toDataURL`)
+- [x] Emit the Base64 string to the server via `socket.emit`
+- [x] Server relays the string to the other peer in the room
+- [x] Receiver sets the Base64 string as the `src` of an `<img>` tag
+- [x] Observe the lag, frame drops, and CPU spike — this is the point
 
 ### Week 3 — The Cure (WebRTC Signaling)
 Goal: replace the image stream with a proper WebRTC handshake, using Socket.io only for signaling.

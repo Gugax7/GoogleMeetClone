@@ -22,5 +22,9 @@ io.on('connection', (socket) => {
         socket.join(room);
         socket.to(room).emit('user-connected', socket.id);
         console.log(`user: ${socket.id} connected to ${room}`)
+
+        socket.on('frame', (frame) => {
+            socket.to(room).emit('partner-frame', frame)
+        })
     })
 })

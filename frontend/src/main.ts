@@ -13,6 +13,11 @@ socket.on('user-connected', (socketID) => {
 
 socket.emit("join-room", "room-001");
 
+async function getUserVideoFrame():Promise<MediaStream> {
+  const frame = await navigator.mediaDevices.getUserMedia({video: true})
+  return frame;
+}
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <section id="center">
   <div class="hero">
@@ -30,40 +35,39 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <div class="ticks"></div>
 
 <section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
+  <video id="local-video" autoplay muted/>
+  <canvas id="capture-canva" style="display:none"/>
+</section>
+
+<section id="partner-video-section">
+  <img id="partner-image"/>
 </section>
 
 <div class="ticks"></div>
 <section id="spacer"></section>
 `
+
+const stream = await getUserVideoFrame();
+
+const videoEl = document.querySelector<HTMLVideoElement>('#local-video')!;
+videoEl.srcObject = stream
+
+const partnerVideo = document.querySelector<HTMLImageElement>('#partner-image')!;
+
+socket.on('partner-frame', (frame) => {
+    partnerVideo.src  = frame;
+})
+
+const canvas = document.querySelector<HTMLCanvasElement>('#capture-canva')!;
+const ctx = canvas.getContext('2d')!;
+
+canvas.width = 320;
+canvas.height = 240;
+
+setInterval(() => {
+  ctx.drawImage(videoEl, 0,0, canvas.width, canvas.height);
+  const frame = canvas.toDataURL('image/jpeg', 0.5);
+  socket.emit("frame", frame);
+}, 10);
 
 setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
