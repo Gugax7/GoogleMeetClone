@@ -7,8 +7,58 @@ import { io } from 'socket.io-client'
 
 const socket = io('http://localhost:3000');
 
-socket.on('user-connected', (socketID) => {
+const pc = new RTCPeerConnection();
+const iceCandidateQueue: RTCIceCandidate[] = [];
+
+pc.onicecandidate = (event) => {
+  if(event.candidate){
+    socket.emit('ice-candidate', event.candidate);
+  }
+}
+
+socket.on('user-connected', async (socketID) => {
   console.log("user connected: ", socketID);
+  
+  const offer = await pc.createOffer()
+
+  await pc.setLocalDescription(offer);
+
+  socket.emit('offer', offer);
+})
+
+// finish handshake
+socket.on('answer', async (answer) => {
+  await pc.setRemoteDescription(answer);
+
+  for(const candidate of iceCandidateQueue) {
+    await pc.addIceCandidate(candidate);
+  }
+  iceCandidateQueue.length = 0;
+})
+
+// send the offer of handshake
+socket.on('offer', async (offer) => {
+  await pc.setRemoteDescription(offer);
+
+  for(const candidate of iceCandidateQueue) {
+    await pc.addIceCandidate(candidate);
+  }
+  iceCandidateQueue.length = 0;
+  
+  const answer = await pc.createAnswer();
+
+  await pc.setLocalDescription(answer);
+
+  socket.emit('answer', answer);
+})
+
+// receive path connection
+socket.on('ice-candidate', (iceCandidate) => {
+  if(pc.remoteDescription) {
+    pc.addIceCandidate(iceCandidate);
+  }else{
+    iceCandidateQueue.push(iceCandidate);
+  }
 })
 
 socket.emit("join-room", "room-001");
@@ -40,7 +90,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 </section>
 
 <section id="partner-video-section">
-  <img id="partner-image"/>
+  <video id="peer-video" autoplay/>
 </section>
 
 <div class="ticks"></div>
@@ -49,25 +99,20 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 
 const stream = await getUserVideoFrame();
 
+// Send video
+for(const track of stream.getTracks()){
+  pc.addTrack(track, stream)
+}
+
+// show the video
 const videoEl = document.querySelector<HTMLVideoElement>('#local-video')!;
 videoEl.srcObject = stream
 
-const partnerVideo = document.querySelector<HTMLImageElement>('#partner-image')!;
+const peerVideo = document.querySelector<HTMLVideoElement>('#peer-video')!;
 
-socket.on('partner-frame', (frame) => {
-    partnerVideo.src  = frame;
-})
-
-const canvas = document.querySelector<HTMLCanvasElement>('#capture-canva')!;
-const ctx = canvas.getContext('2d')!;
-
-canvas.width = 320;
-canvas.height = 240;
-
-setInterval(() => {
-  ctx.drawImage(videoEl, 0,0, canvas.width, canvas.height);
-  const frame = canvas.toDataURL('image/jpeg', 0.5);
-  socket.emit("frame", frame);
-}, 10);
+// receiving the event it show on screen
+pc.ontrack = (event) => {
+  peerVideo.srcObject = event.streams[0];
+}
 
 setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)

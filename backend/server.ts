@@ -26,5 +26,17 @@ io.on('connection', (socket) => {
         socket.on('frame', (frame) => {
             socket.to(room).emit('partner-frame', frame)
         })
+
+        socket.on('offer', (offer) => {
+            socket.to(room).emit('offer', offer);
+        })
+        
+        socket.on('answer', (answer) => {
+            socket.to(room).emit('answer', answer);
+        })
+
+        socket.on('ice-candidate', (iceCandidate) => {
+            socket.to(room).emit('ice-candidate', iceCandidate);
+        })
     })
 })
