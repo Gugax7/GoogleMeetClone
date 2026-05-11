@@ -64,7 +64,7 @@ socket.on('ice-candidate', (iceCandidate) => {
 socket.emit("join-room", "room-001");
 
 async function getUserVideoFrame():Promise<MediaStream> {
-  const frame = await navigator.mediaDevices.getUserMedia({video: true})
+  const frame = await navigator.mediaDevices.getUserMedia({video: true, audio: true})
   return frame;
 }
 
@@ -103,6 +103,8 @@ const stream = await getUserVideoFrame();
 for(const track of stream.getTracks()){
   pc.addTrack(track, stream)
 }
+
+
 
 // show the video
 const videoEl = document.querySelector<HTMLVideoElement>('#local-video')!;

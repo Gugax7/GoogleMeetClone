@@ -49,7 +49,10 @@ Goal: punch through NATs and firewalls so browsers stream video peer-to-peer.
 
 ## Next Steps
 
-- [ ] Add audio
+- [x] Add audio
+- [ ] WebRTC renegotiation — allow peers to receive video before granting camera 
+      permission, and start sending immediately when they do. Requires `onnegotiationneeded` 
+      and a `peerConnected` flag to coordinate offer creation in both timing scenarios.
 - [ ] Deploy to a real server and test between two different machines/networks
 - [ ] Add TURN server support for peers behind strict NATs/firewalls
 - [ ] Support more than 2 peers in the same room (mesh or SFU architecture)
