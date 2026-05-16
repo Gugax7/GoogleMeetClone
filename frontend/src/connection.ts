@@ -12,8 +12,27 @@ export function sendMedia(stream: MediaStream | null): void{
     }
 }
 
+export function joinRoom(roomName: string = "room-001") {
+  socket.emit("join-room", roomName);
+}
+
 export function onRemoteStream(callback: (stream: MediaStream) => void) {
     pc.ontrack = (event) => callback(event.streams[0]);
+}
+
+export async function createAndSendOffer() {
+  const offer = await pc.createOffer()
+
+  await pc.setLocalDescription(offer);
+
+  socket.emit('offer', offer);
+}
+
+async function flushIceCandidateQueue() { 
+  for(const candidate of iceCandidateQueue) {
+    await pc.addIceCandidate(candidate);
+  }
+  iceCandidateQueue.length = 0;
 }
 
 pc.onicecandidate = (event) => {
@@ -22,34 +41,34 @@ pc.onicecandidate = (event) => {
   }
 }
 
+pc.onnegotiationneeded = async () => {
+  if(!peerConnected) return;
+
+  await createAndSendOffer();
+}
+
 socket.on('user-connected', async (socketID) => {
   console.log("user connected: ", socketID);
-  
-  const offer = await pc.createOffer()
 
-  await pc.setLocalDescription(offer);
+  peerConnected = true;
 
-  socket.emit('offer', offer);
+  if(pc.getSenders().some(s => s.track)){
+    await createAndSendOffer();
+  }
 })
 
 // finish handshake
 socket.on('answer', async (answer) => {
   await pc.setRemoteDescription(answer);
 
-  for(const candidate of iceCandidateQueue) {
-    await pc.addIceCandidate(candidate);
-  }
-  iceCandidateQueue.length = 0;
+  flushIceCandidateQueue();
 })
 
 // send the offer of handshake
 socket.on('offer', async (offer) => {
   await pc.setRemoteDescription(offer);
 
-  for(const candidate of iceCandidateQueue) {
-    await pc.addIceCandidate(candidate);
-  }
-  iceCandidateQueue.length = 0;
+  flushIceCandidateQueue();
   
   const answer = await pc.createAnswer();
 
@@ -66,5 +85,3 @@ socket.on('ice-candidate', (iceCandidate) => {
     iceCandidateQueue.push(iceCandidate);
   }
 })
-
-socket.emit("join-room", "room-001");

@@ -3,7 +3,9 @@ import typescriptLogo from './assets/typescript.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import { getUserMediaStream } from './util'
-import { onRemoteStream, sendMedia } from './connection'
+import { joinRoom, onRemoteStream, sendMedia } from './connection'
+
+joinRoom();
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <section id="center">
