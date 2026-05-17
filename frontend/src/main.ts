@@ -5,7 +5,7 @@ import heroImg from './assets/hero.png'
 import { setupCounter } from './counter.ts'
 import { io } from 'socket.io-client'
 
-const socket = io('http://localhost:3000');
+const socket = io(`http://${window.location.hostname}:3000`);
 
 socket.on('user-connected', (socketID) => {
   console.log("user connected: ", socketID);
@@ -68,6 +68,6 @@ setInterval(() => {
   ctx.drawImage(videoEl, 0,0, canvas.width, canvas.height);
   const frame = canvas.toDataURL('image/jpeg', 0.5);
   socket.emit("frame", frame);
-}, 10);
+}, 100);
 
 setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)

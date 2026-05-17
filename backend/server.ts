@@ -13,7 +13,7 @@ const server = app.listen(PORT, () => {
 
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3001"
+        origin: "*"
     }
 })
 
