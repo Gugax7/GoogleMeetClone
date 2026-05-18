@@ -13,7 +13,7 @@ const server = app.listen(PORT, () => {
 
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3001"
+        origin: "*"
     }
 })
 
@@ -37,6 +37,10 @@ io.on('connection', (socket) => {
 
         socket.on('ice-candidate', (iceCandidate) => {
             socket.to(room).emit('ice-candidate', iceCandidate);
+        })
+
+        socket.on("disconnect", (userId) => {
+            socket.to(room).emit('user-disconnect', userId);
         })
     })
 })

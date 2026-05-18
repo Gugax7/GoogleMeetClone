@@ -1,14 +1,6 @@
 version: '3.8'
 
 services:
-  frontend:
-    build: ./frontend
-    ports: 
-      - "3001:5173"
-    volumes:
-      - ./frontend:/frontend
-      - /frontend/node_modules
-
   backend:
     build: ./backend
     env_file:
@@ -18,3 +10,4 @@ services:
     volumes:
       - ./backend:/server
       - /server/node_modules
+      - ./frontend/dist:/frontend/dist  # ← add this

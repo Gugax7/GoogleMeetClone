@@ -17,7 +17,14 @@ export function joinRoom(roomName: string = "room-001") {
 }
 
 export function onRemoteStream(callback: (stream: MediaStream) => void) {
-    pc.ontrack = (event) => callback(event.streams[0]);
+  pc.ontrack = (event) => callback(event.streams[0]);
+}
+
+export function onPeerDisconnected(callback: ()=>void) {
+   socket.on('disconnect', () => {
+    pc.close();
+    callback();
+});
 }
 
 export async function createAndSendOffer() {

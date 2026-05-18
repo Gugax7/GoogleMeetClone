@@ -3,9 +3,7 @@ import typescriptLogo from './assets/typescript.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import { getUserMediaStream } from './util'
-import { joinRoom, onRemoteStream, sendMedia } from './connection'
-
-joinRoom();
+import { joinRoom, onPeerDisconnected, onRemoteStream, sendMedia } from './connection'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <section id="center">
@@ -40,6 +38,10 @@ const peerVideo = document.querySelector<HTMLVideoElement>('#peer-video')!;
 onRemoteStream((media) => {
   peerVideo.srcObject = media
 })
+onPeerDisconnected(() => {
+  peerVideo.srcObject = null
+  peerVideo.load();
+})
 
 const stream = await getUserMediaStream();
 
@@ -48,3 +50,5 @@ sendMedia(stream)
 // show the video
 const videoEl = document.querySelector<HTMLVideoElement>('#local-video')!;
 videoEl.srcObject = stream
+
+joinRoom();
