@@ -1,28 +1,12 @@
 import './style.css'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import { getUserMediaStream } from './util'
-import { joinRoom, onPeerDisconnected, onRemoteStream, sendMedia } from './connection'
+import { joinRoom, onPeerDisconnected, sendMedia, setupPeerConnectionHandlers } from './connection'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-</section>
-
 <div class="ticks"></div>
 
 <section id="next-steps">
   <video id="local-video" autoplay muted/>
-  <canvas id="capture-canva" style="display:none"/>
 </section>
 
 <section id="partner-video-section">
@@ -34,16 +18,19 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 `
 
 const peerVideo = document.querySelector<HTMLVideoElement>('#peer-video')!;
+const stream = await getUserMediaStream();
+const onRemoteStream = (media: MediaStream) => { peerVideo.srcObject = media };
 
-onRemoteStream((media) => {
-  peerVideo.srcObject = media
-})
+setupPeerConnectionHandlers(onRemoteStream)
+
 onPeerDisconnected(() => {
   peerVideo.srcObject = null
   peerVideo.load();
-})
 
-const stream = await getUserMediaStream();
+  setupPeerConnectionHandlers(onRemoteStream)
+
+  sendMedia(stream)
+})
 
 sendMedia(stream)
 

@@ -1,8 +1,10 @@
 import { socket } from './socket';
-import { pc } from './webrtc';
+import { getPeerConnection } from './webrtc';
 
 const iceCandidateQueue: RTCIceCandidate[] = [];
 let peerConnected = false;
+
+let pc = getPeerConnection();
 
 export function sendMedia(stream: MediaStream | null): void{
     if(!stream) return;
@@ -16,15 +18,31 @@ export function joinRoom(roomName: string = "room-001") {
   socket.emit("join-room", roomName);
 }
 
-export function onRemoteStream(callback: (stream: MediaStream) => void) {
-  pc.ontrack = (event) => callback(event.streams[0]);
-}
-
 export function onPeerDisconnected(callback: ()=>void) {
-   socket.on('disconnect', () => {
+   socket.on('user-disconnect', () => {
+    peerConnected = false;
     pc.close();
+
+    pc = getPeerConnection();
+
     callback();
 });
+}
+
+export function setupPeerConnectionHandlers(callback: (stream: MediaStream) => void){
+  pc.onicecandidate = (event) => {
+    if(event.candidate){
+      socket.emit('ice-candidate', event.candidate);
+    }
+  }
+
+  pc.onnegotiationneeded = async () => {
+    if(!peerConnected) return;
+
+    await createAndSendOffer();
+  }
+
+  pc.ontrack = (event) => callback(event.streams[0]);
 }
 
 export async function createAndSendOffer() {
@@ -42,18 +60,6 @@ async function flushIceCandidateQueue() {
   iceCandidateQueue.length = 0;
 }
 
-pc.onicecandidate = (event) => {
-  if(event.candidate){
-    socket.emit('ice-candidate', event.candidate);
-  }
-}
-
-pc.onnegotiationneeded = async () => {
-  if(!peerConnected) return;
-
-  await createAndSendOffer();
-}
-
 socket.on('user-connected', async (socketID) => {
   console.log("user connected: ", socketID);
 
@@ -68,14 +74,16 @@ socket.on('user-connected', async (socketID) => {
 socket.on('answer', async (answer) => {
   await pc.setRemoteDescription(answer);
 
-  flushIceCandidateQueue();
+  await flushIceCandidateQueue();
 })
 
 // send the offer of handshake
 socket.on('offer', async (offer) => {
   await pc.setRemoteDescription(offer);
 
-  flushIceCandidateQueue();
+  peerConnected = true
+
+  await flushIceCandidateQueue();
   
   const answer = await pc.createAnswer();
 
