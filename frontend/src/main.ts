@@ -1,6 +1,6 @@
 import './style.css'
 import { getUserMediaStream } from './util'
-import { joinRoom, onPeerDisconnected, sendMedia, setupPeerConnectionHandlers } from './connection'
+import { joinRoom, onPeerDisconnected, onPeerC } from './connection'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <div class="ticks"></div>

@@ -27,20 +27,20 @@ io.on('connection', (socket) => {
             socket.to(room).emit('partner-frame', frame)
         })
 
-        socket.on('offer', (offer) => {
-            socket.to(room).emit('offer', offer);
+        socket.on('offer', ({offer, to}) => {
+            socket.to(to).emit('offer', {offer, from: socket.id});
         })
         
-        socket.on('answer', (answer) => {
-            socket.to(room).emit('answer', answer);
+        socket.on('answer', ({answer, to}) => {
+            socket.to(to).emit('answer', {answer, from: socket.id});
         })
 
-        socket.on('ice-candidate', (iceCandidate) => {
-            socket.to(room).emit('ice-candidate', iceCandidate);
+        socket.on('ice-candidate', ({iceCandidate, to}) => {
+            socket.to(to).emit('ice-candidate', {iceCandidate, from: socket.id});
         })
 
-        socket.on("disconnect", (userId) => {
-            socket.to(room).emit('user-disconnect', userId);
+        socket.on("disconnect", () => {
+            socket.to(room).emit('user-disconnect', socket.id);
         })
     })
 })

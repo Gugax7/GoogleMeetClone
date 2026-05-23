@@ -1,67 +1,78 @@
 import { socket } from './socket';
 import { getPeerConnection } from './webrtc';
 
-const iceCandidateQueue: RTCIceCandidate[] = [];
-let peerConnected = false;
+const peers = new Map<string, RTCPeerConnection>();
+let localStream: MediaStream | null = null;
 
-let pc = getPeerConnection();
+const iceCandidateQueues = new Map<string, RTCIceCandidate[]>();
 
-export function sendMedia(stream: MediaStream | null): void{
-    if(!stream) return;
+function createPeerConnection(socketID: string, onTrack: (socketID:string, stream: MediaStream) => void){
+  const newPc = getPeerConnection();
 
-    for(const track of stream.getTracks()){
-    pc.addTrack(track, stream)
+  newPc.onicecandidate = (event) => {
+    if(event.candidate){
+      socket.emit('ice-candidate', { iceCandidate: event.candidate, to: socketID})
     }
+  }
+
+  newPc.onnegotiationneeded = async () => {
+    await createAndSendOffer(socketID, newPc);
+  }
+
+  localStream?.getTracks().forEach(track => newPc.addTrack(track, localStream!))
+
+  newPc.ontrack = (event) => onTrack(socketID, event.streams[0])
+
+  peers.set(socketID, newPc);
+
+  return newPc;
+}
+
+export function setLocalStream(stream: MediaStream){
+  localStream = stream;
 }
 
 export function joinRoom(roomName: string = "room-001") {
   socket.emit("join-room", roomName);
 }
 
-export function onPeerDisconnected(callback: ()=>void) {
-   socket.on('user-disconnect', () => {
-    peerConnected = false;
-    pc.close();
+export function onPeerConnected(socketID: string, callback: (stream: MediaStream) => void) {
+  socket.on("user-connected", (socketId) => {
+    createPeerConnection(socketID,)
+  })
+}
 
-    pc = getPeerConnection();
+export function onPeerDisconnected(callback: ()=>void) {
+   socket.on('user-disconnect', (socketID) => {
+    peers.get(socketID)?.close();
 
     callback();
 });
 }
 
-export function setupPeerConnectionHandlers(callback: (stream: MediaStream) => void){
-  pc.onicecandidate = (event) => {
-    if(event.candidate){
-      socket.emit('ice-candidate', event.candidate);
-    }
-  }
-
-  pc.onnegotiationneeded = async () => {
-    if(!peerConnected) return;
-
-    await createAndSendOffer();
-  }
-
-  pc.ontrack = (event) => callback(event.streams[0]);
-}
-
-export async function createAndSendOffer() {
+export async function createAndSendOffer(socketId: string, pc: RTCPeerConnection) {
   const offer = await pc.createOffer()
 
   await pc.setLocalDescription(offer);
 
-  socket.emit('offer', offer);
+  socket.emit('offer', { offer, to: socketId});
 }
 
-async function flushIceCandidateQueue() { 
-  for(const candidate of iceCandidateQueue) {
+async function flushIceCandidateQueue(socketId: string, pc: RTCPeerConnection) { 
+  const queue = iceCandidateQueues.get(socketId);
+  
+  if(!queue) return;
+
+  for(const candidate of queue) {
     await pc.addIceCandidate(candidate);
   }
-  iceCandidateQueue.length = 0;
+  queue.length = 0;
 }
 
 socket.on('user-connected', async (socketID) => {
   console.log("user connected: ", socketID);
+
+  peers.set(socketID, getPeerConnection());
 
   peerConnected = true;
 
