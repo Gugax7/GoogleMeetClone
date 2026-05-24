@@ -6,7 +6,9 @@ let localStream: MediaStream | null = null;
 
 const iceCandidateQueues = new Map<string, RTCIceCandidate[]>();
 
-function createPeerConnection(socketID: string, onTrack: (socketID:string, stream: MediaStream) => void){
+let onTrackCallback: (socketId: string, stream: MediaStream) => void;
+
+function createPeerConnection(socketID: string, onTrack: (socketId: string, stream: MediaStream) => void){
   const newPc = getPeerConnection();
 
   newPc.onicecandidate = (event) => {
@@ -36,17 +38,22 @@ export function joinRoom(roomName: string = "room-001") {
   socket.emit("join-room", roomName);
 }
 
-export function onPeerConnected(socketID: string, callback: (stream: MediaStream) => void) {
+export function onPeerConnected(callback: (socketId:string, stream: MediaStream) => void) {
+  onTrackCallback = callback;
+  
   socket.on("user-connected", (socketId) => {
-    createPeerConnection(socketID,)
+    createPeerConnection(socketId, callback)
   })
 }
 
-export function onPeerDisconnected(callback: ()=>void) {
+export function onPeerDisconnected(callback: (socketId: string)=>void) {
    socket.on('user-disconnect', (socketID) => {
     peers.get(socketID)?.close();
 
-    callback();
+    peers.delete(socketID);
+    iceCandidateQueues.delete(socketID);
+
+    callback(socketID);
 });
 }
 
@@ -69,45 +76,45 @@ async function flushIceCandidateQueue(socketId: string, pc: RTCPeerConnection) {
   queue.length = 0;
 }
 
-socket.on('user-connected', async (socketID) => {
-  console.log("user connected: ", socketID);
-
-  peers.set(socketID, getPeerConnection());
-
-  peerConnected = true;
-
-  if(pc.getSenders().some(s => s.track)){
-    await createAndSendOffer();
-  }
-})
-
 // finish handshake
-socket.on('answer', async (answer) => {
+socket.on('answer', async ({answer, from}) => {
+  const pc = peers.get(from);
+
+  if(!pc) return;
+
   await pc.setRemoteDescription(answer);
 
-  await flushIceCandidateQueue();
+  await flushIceCandidateQueue(from, pc);
 })
 
 // send the offer of handshake
-socket.on('offer', async (offer) => {
+socket.on('offer', async ({offer, from}) => {
+  const pc = createPeerConnection(from, onTrackCallback);
+
+  if(!pc) return;
+
   await pc.setRemoteDescription(offer);
 
-  peerConnected = true
-
-  await flushIceCandidateQueue();
+  await flushIceCandidateQueue(from, pc);
   
   const answer = await pc.createAnswer();
 
   await pc.setLocalDescription(answer);
 
-  socket.emit('answer', answer);
+  socket.emit('answer', {answer, to: from});
 })
 
 // receive path connection
-socket.on('ice-candidate', (iceCandidate) => {
-  if(pc.remoteDescription) {
-    pc.addIceCandidate(iceCandidate);
-  }else{
-    iceCandidateQueue.push(iceCandidate);
+socket.on('ice-candidate', ({iceCandidate, from}) => {
+  const pc = peers.get(from);
+
+  if(pc?.remoteDescription) {
+    pc.addIceCandidate(iceCandidate)
+  } else{
+    const queue = iceCandidateQueues.get(from) ?? [];
+
+    queue.push(iceCandidate);
+
+    iceCandidateQueues.set(from, queue);
   }
 })
