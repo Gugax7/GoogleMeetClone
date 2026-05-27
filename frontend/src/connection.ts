@@ -8,7 +8,7 @@ const iceCandidateQueues = new Map<string, RTCIceCandidate[]>();
 
 let onTrackCallback: (socketId: string, stream: MediaStream) => void;
 
-function createPeerConnection(socketID: string, onTrack: (socketId: string, stream: MediaStream) => void){
+function createPeerConnection(socketID: string, onTrack: (socketId: string, stream: MediaStream) => void, isOfferer: boolean = true){
   const newPc = getPeerConnection();
 
   newPc.onicecandidate = (event) => {
@@ -18,13 +18,18 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
   }
 
   newPc.onnegotiationneeded = async () => {
+    if(!isOfferer) return;
+    if(newPc.signalingState !== 'stable') return;
     await createAndSendOffer(socketID, newPc);
   }
 
   localStream?.getTracks().forEach(track => newPc.addTrack(track, localStream!))
 
-  newPc.ontrack = (event) => onTrack(socketID, event.streams[0])
+  newPc.ontrack = (event) => {
+    console.log('ontrack fired', socketID, event.streams[0])
 
+    onTrack(socketID, event.streams[0])
+  }
   peers.set(socketID, newPc);
 
   return newPc;
@@ -40,7 +45,7 @@ export function joinRoom(roomName: string = "room-001") {
 
 export function onPeerConnected(callback: (socketId:string, stream: MediaStream) => void) {
   onTrackCallback = callback;
-  
+
   socket.on("user-connected", (socketId) => {
     createPeerConnection(socketId, callback)
   })
@@ -89,7 +94,7 @@ socket.on('answer', async ({answer, from}) => {
 
 // send the offer of handshake
 socket.on('offer', async ({offer, from}) => {
-  const pc = createPeerConnection(from, onTrackCallback);
+  const pc = createPeerConnection(from, onTrackCallback, false);
 
   if(!pc) return;
 

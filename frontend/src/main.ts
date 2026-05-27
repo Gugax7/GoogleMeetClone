@@ -1,6 +1,7 @@
 import './style.css'
 import { getUserMediaStream } from './util'
-import { joinRoom, onPeerDisconnected, onPeerC } from './connection'
+import { joinRoom, onPeerDisconnected, onPeerConnected, setLocalStream } from './connection'
+import { socket } from './socket';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <div class="ticks"></div>
@@ -10,29 +11,41 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 </section>
 
 <section id="partner-video-section">
-  <video id="peer-video" autoplay/>
 </section>
 
 <div class="ticks"></div>
 <section id="spacer"></section>
 `
 
-const peerVideo = document.querySelector<HTMLVideoElement>('#peer-video')!;
 const stream = await getUserMediaStream();
-const onRemoteStream = (media: MediaStream) => { peerVideo.srcObject = media };
+if(stream) setLocalStream(stream);
 
-setupPeerConnectionHandlers(onRemoteStream)
+const videoElements = new Map<string, HTMLVideoElement>();
 
-onPeerDisconnected(() => {
-  peerVideo.srcObject = null
-  peerVideo.load();
+onPeerConnected((socketId, stream) => {
+  console.log('peer connected callback', socketId, stream)
 
-  setupPeerConnectionHandlers(onRemoteStream)
+  if(videoElements.has(socketId)) {
+    videoElements.get(socketId)!.srcObject = stream;
+    return;
+  }
 
-  sendMedia(stream)
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.srcObject = stream;
+  document.querySelector('#partner-video-section')!.appendChild(video);
+
+  videoElements.set(socketId,video);
+});
+
+console.log("socket listeners: ", socket.listeners('user-connected').length)
+
+onPeerDisconnected((socketId) => {
+  const video = videoElements.get(socketId);
+  video?.remove();
+
+  videoElements.delete(socketId);
 })
-
-sendMedia(stream)
 
 // show the video
 const videoEl = document.querySelector<HTMLVideoElement>('#local-video')!;
