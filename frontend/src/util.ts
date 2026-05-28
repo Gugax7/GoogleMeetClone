@@ -10,3 +10,8 @@ export async function getUserMediaStream(): Promise<MediaStream | null> {
         }
     }
 }
+
+export async function getUserScreenStream(){
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true});
+    return screenStream
+}
