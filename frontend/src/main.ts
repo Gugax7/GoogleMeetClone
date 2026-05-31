@@ -1,6 +1,6 @@
 import './main.css'
 import { getUserMediaStream, getUserScreenStream } from './util'
-import { joinRoom, onPeerDisconnected, onPeerConnected, setLocalStream } from './connection'
+import { joinRoom, onPeerDisconnected, onPeerConnected, setLocalStream, setLocalScreenStream, onPeerShareScreen, onPeerStopSharingScreen } from './connection'
 import { socket } from './socket';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
@@ -28,13 +28,18 @@ document.querySelector('#share-screen-btn')!.addEventListener('click', async () 
   const screenStream = await getUserScreenStream();
   if(!screenStream) return;
 
+  const screenTrack = screenStream.getVideoTracks()[0];
+  screenTrack.contentHint = 'screenShare';
+
+  setLocalScreenStream(screenStream);
+
   const overlay = document.querySelector<HTMLElement>('#screen-share-overlay')!;
   const screenVideo = document.querySelector<HTMLVideoElement>('#screen-share-video')!;
 
   screenVideo.srcObject = screenStream;
   overlay.style.display = 'flex';
 
-  screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
+  screenTrack.onended = () => stopScreenShare();
 })
 
 document.querySelector('#stop-share-btn')!.addEventListener('click', () => stopScreenShare());
@@ -76,6 +81,29 @@ onPeerDisconnected((socketId) => {
 
   videoElements.delete(socketId);
   updateLayout();
+})
+
+const screenShareVideoElements = new Map<string, HTMLVideoElement>();
+
+onPeerShareScreen((socketId, stream) => {
+  if(screenShareVideoElements.has(socketId)){
+    screenShareVideoElements.get(socketId)!.srcObject = stream;
+    return;
+  }
+
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.srcObject = stream;
+  document.querySelector('#peers-screen-share')!.appendChild(video);
+
+  screenShareVideoElements.set(socketId, video);
+})
+
+onPeerStopSharingScreen((socketId) => {
+  const video = screenShareVideoElements.get(socketId);
+  video?.remove();
+
+  screenShareVideoElements.delete(socketId);
 })
 
 // show the video

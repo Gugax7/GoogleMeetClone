@@ -5,10 +5,13 @@ const peers = new Map<string, RTCPeerConnection>();
 let localStream: MediaStream | null = null;
 
 const iceCandidateQueues = new Map<string, RTCIceCandidate[]>();
+const videoStreamTypes = new Map<string, 'screen' | 'camera'>();
 
 let onTrackCallback: (socketId: string, stream: MediaStream) => void;
+let onScreenTrackCallback: (socketId: string, stream: MediaStream) => void;
+let onScreenShareStopCallback: (socketId: string) => void;
 
-function createPeerConnection(socketID: string, onTrack: (socketId: string, stream: MediaStream) => void, isOfferer: boolean = true){
+function createPeerConnection(socketID: string, onTrack: (socketId: string, stream: MediaStream) => void){
   const newPc = getPeerConnection();
 
   newPc.onicecandidate = (event) => {
@@ -18,7 +21,6 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
   }
 
   newPc.onnegotiationneeded = async () => {
-    if(!isOfferer) return;
     if(newPc.signalingState !== 'stable') return;
     await createAndSendOffer(socketID, newPc);
   }
@@ -26,9 +28,25 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
   localStream?.getTracks().forEach(track => newPc.addTrack(track, localStream!))
 
   newPc.ontrack = (event) => {
-    console.log('ontrack fired', socketID, event.streams[0])
+    console.log('ontrack fired, contentHint:', event.track.contentHint, 'kind:', event.track.kind)
 
-    onTrack(socketID, event.streams[0])
+    if(event.track.kind === 'audio') {
+      onTrack(socketID, event.streams[0]);
+      return;
+    }
+
+    const type = videoStreamTypes.get(event.streams[0].id) ?? 'camera';
+
+    if(type === 'screen') {
+      event.track.onended = () => {
+        console.log('Screen track ended: ', socketID);
+        onScreenShareStopCallback?.(socketID);
+      }
+
+      onScreenTrackCallback?.(socketID, event.streams[0]);
+    } else {
+      onTrack(socketID, event.streams[0]);
+    }
   }
   peers.set(socketID, newPc);
 
@@ -38,6 +56,18 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
 export function setLocalStream(stream: MediaStream){
   localStream = stream;
 }
+
+export function setLocalScreenStream(stream: MediaStream){
+  console.log('peers count:', peers.size)
+
+  socket.emit('peer-track', { type: 'screen', streamId: stream.id });
+
+  for(const [_, pc] of peers){
+    console.log('adding screen track to peer, state:', pc.signalingState)
+    stream.getTracks().forEach(track => pc.addTrack(track, stream))
+  }
+}
+
 
 export function joinRoom(roomName: string = "room-001") {
   socket.emit("join-room", roomName);
@@ -60,6 +90,14 @@ export function onPeerDisconnected(callback: (socketId: string)=>void) {
 
     callback(socketID);
 });
+}
+
+export function onPeerShareScreen(callback: (socketId: string, stream: MediaStream) => void) {
+  onScreenTrackCallback = callback;
+}
+
+export function onPeerStopSharingScreen(callback: (socketId: string) => void){
+  onScreenShareStopCallback = callback
 }
 
 export async function createAndSendOffer(socketId: string, pc: RTCPeerConnection) {
@@ -94,9 +132,19 @@ socket.on('answer', async ({answer, from}) => {
 
 // send the offer of handshake
 socket.on('offer', async ({offer, from}) => {
-  const pc = createPeerConnection(from, onTrackCallback, false);
+  const pc = peers.get(from) ?? createPeerConnection(from, onTrackCallback);
 
   if(!pc) return;
+
+  const polite = socket.id! < from;
+
+  const collision = pc.signalingState !== 'stable';
+
+  if(collision && !polite) return;
+
+  if(collision && polite) {
+    await pc.setLocalDescription({type: 'rollback'});  // polite: rollback own offer
+  }
 
   await pc.setRemoteDescription(offer);
 
@@ -122,4 +170,8 @@ socket.on('ice-candidate', ({iceCandidate, from}) => {
 
     iceCandidateQueues.set(from, queue);
   }
+})
+
+socket.on('peer-track', ({ type, streamId }) => {
+  videoStreamTypes.set(streamId, type)
 })

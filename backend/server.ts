@@ -42,5 +42,9 @@ io.on('connection', (socket) => {
         socket.on("disconnect", () => {
             socket.to(room).emit('user-disconnect', socket.id);
         })
+
+        socket.on('peer-track', (data) => {
+            socket.to(room).emit('peer-track', { ...data, from: socket.id });
+        })
     })
 })
