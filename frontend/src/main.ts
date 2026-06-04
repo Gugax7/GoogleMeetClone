@@ -94,6 +94,7 @@ onPeerShareScreen((socketId, stream) => {
   const video = document.createElement('video');
   video.autoplay = true;
   video.srcObject = stream;
+  video.id='screen-share-video';
   document.querySelector('#peers-screen-share')!.appendChild(video);
 
   screenShareVideoElements.set(socketId, video);

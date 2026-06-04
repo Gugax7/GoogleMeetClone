@@ -29,6 +29,7 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
 
   newPc.ontrack = (event) => {
     console.log('ontrack fired, contentHint:', event.track.contentHint, 'kind:', event.track.kind)
+    console.log('ontrack stream id:', event.streams[0].id, 'lookup result:', videoStreamTypes.get(event.streams[0].id))
 
     if(event.track.kind === 'audio') {
       onTrack(socketID, event.streams[0]);
@@ -59,6 +60,7 @@ export function setLocalStream(stream: MediaStream){
 
 export function setLocalScreenStream(stream: MediaStream){
   console.log('peers count:', peers.size)
+  console.log('emitting peer-track streamId:', stream.id)
 
   socket.emit('peer-track', { type: 'screen', streamId: stream.id });
 
@@ -173,5 +175,6 @@ socket.on('ice-candidate', ({iceCandidate, from}) => {
 })
 
 socket.on('peer-track', ({ type, streamId }) => {
+  console.log('received peer-track type: ', type, ' streamId: ', streamId)
   videoStreamTypes.set(streamId, type)
 })
