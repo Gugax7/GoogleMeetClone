@@ -3,9 +3,11 @@ import { getPeerConnection } from './webrtc';
 
 const peers = new Map<string, RTCPeerConnection>();
 let localStream: MediaStream | null = null;
+let localScreenStream: MediaStream | null = null;
 
 const iceCandidateQueues = new Map<string, RTCIceCandidate[]>();
 const videoStreamTypes = new Map<string, 'screen' | 'camera'>();
+const pendingVideoTracks = new Map<string, { socketID: string, stream: MediaStream, track: MediaStreamTrack }>();
 
 let onTrackCallback: (socketId: string, stream: MediaStream) => void;
 let onScreenTrackCallback: (socketId: string, stream: MediaStream) => void;
@@ -25,18 +27,30 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
     await createAndSendOffer(socketID, newPc);
   }
 
+  if(localScreenStream){
+    socket.emit('peer-track', { type: 'screen', streamId: localScreenStream.id, to: socketID })
+    
+    localScreenStream?.getTracks().forEach(track => newPc.addTrack(track, localScreenStream!));
+  }
+
   localStream?.getTracks().forEach(track => newPc.addTrack(track, localStream!))
 
+
   newPc.ontrack = (event) => {
-    console.log('ontrack fired, contentHint:', event.track.contentHint, 'kind:', event.track.kind)
-    console.log('ontrack stream id:', event.streams[0].id, 'lookup result:', videoStreamTypes.get(event.streams[0].id))
+    //console.log('ontrack fired, contentHint:', event.track.contentHint, 'kind:', event.track.kind)
+    //console.log('ontrack stream id:', event.streams[0].id, 'lookup result:', videoStreamTypes.get(event.streams[0].id))
 
     if(event.track.kind === 'audio') {
       onTrack(socketID, event.streams[0]);
       return;
     }
 
-    const type = videoStreamTypes.get(event.streams[0].id) ?? 'camera';
+    const type = videoStreamTypes.get(event.streams[0].id)
+
+    if(type === undefined) {
+      pendingVideoTracks.set(event.streams[0].id , {socketID, stream: event.streams[0], track: event.track});
+      return;
+    }
 
     if(type === 'screen') {
       event.track.onended = () => {
@@ -61,6 +75,8 @@ export function setLocalStream(stream: MediaStream){
 export function setLocalScreenStream(stream: MediaStream){
   console.log('peers count:', peers.size)
   console.log('emitting peer-track streamId:', stream.id)
+
+  localScreenStream = stream;
 
   socket.emit('peer-track', { type: 'screen', streamId: stream.id });
 
@@ -175,6 +191,18 @@ socket.on('ice-candidate', ({iceCandidate, from}) => {
 })
 
 socket.on('peer-track', ({ type, streamId }) => {
-  console.log('received peer-track type: ', type, ' streamId: ', streamId)
+  //console.log('received peer-track type: ', type, ' streamId: ', streamId)
   videoStreamTypes.set(streamId, type)
+
+  const pending = pendingVideoTracks.get(streamId);
+  if(pending) {
+    pendingVideoTracks.delete(streamId);
+    if(type === 'screen'){
+      pending.track.onended = () => onScreenShareStopCallback?.(pending.socketID);
+      onScreenTrackCallback?.(pending.socketID, pending.stream);
+    }
+    else{
+      onTrackCallback?.(pending.socketID, pending.stream)
+    }
+  }
 })
