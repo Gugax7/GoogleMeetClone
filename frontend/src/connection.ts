@@ -29,7 +29,6 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
 
   if(localScreenStream){
     socket.emit('peer-track', { type: 'screen', streamId: localScreenStream.id, to: socketID })
-    
     localScreenStream?.getTracks().forEach(track => newPc.addTrack(track, localScreenStream!));
   }
 
@@ -38,10 +37,14 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
 
   newPc.ontrack = (event) => {
     //console.log('ontrack fired, contentHint:', event.track.contentHint, 'kind:', event.track.kind)
-    //console.log('ontrack stream id:', event.streams[0].id, 'lookup result:', videoStreamTypes.get(event.streams[0].id))
+    console.log('ontrack video, streamId:', event.streams[0].id, 'type lookup:', videoStreamTypes.get(event.streams[0].id))
 
     if(event.track.kind === 'audio') {
-      onTrack(socketID, event.streams[0]);
+      const knownType = videoStreamTypes.get(event.streams[0].id);
+
+      if(knownType !== 'screen'){
+        onTrack(socketID, event.streams[0]);
+      }
       return;
     }
 
@@ -68,15 +71,17 @@ function createPeerConnection(socketID: string, onTrack: (socketId: string, stre
   return newPc;
 }
 
-export function setLocalStream(stream: MediaStream){
+export function setLocalStream(stream: MediaStream | null){
   localStream = stream;
 }
 
-export function setLocalScreenStream(stream: MediaStream){
-  console.log('peers count:', peers.size)
-  console.log('emitting peer-track streamId:', stream.id)
+export function setLocalScreenStream(stream: MediaStream | null){
+  //console.log('peers count:', peers.size)
+  //console.log('emitting peer-track streamId:', stream.id)
 
   localScreenStream = stream;
+
+  if(!stream) return;
 
   socket.emit('peer-track', { type: 'screen', streamId: stream.id });
 
@@ -110,13 +115,27 @@ export function onPeerDisconnected(callback: (socketId: string)=>void) {
 });
 }
 
+export function emitStopScreenShare() {
+  socket.emit('peer-stop-screen-share')
+}
+
 export function onPeerShareScreen(callback: (socketId: string, stream: MediaStream) => void) {
   onScreenTrackCallback = callback;
 }
 
 export function onPeerStopSharingScreen(callback: (socketId: string) => void){
-  onScreenShareStopCallback = callback
+  onScreenShareStopCallback = callback;
+  
+  socket.on('peer-stop-screen-share', (socketId) => {
+    callback(socketId);
+  })
 }
+
+// export function onPeerStopSharingScreen(callback: (socketId: string) => void){
+//   onScreenShareStopCallback = callback
+
+//   socket.emit('peer-stop-screen-share');
+// }
 
 export async function createAndSendOffer(socketId: string, pc: RTCPeerConnection) {
   const offer = await pc.createOffer()
@@ -191,7 +210,7 @@ socket.on('ice-candidate', ({iceCandidate, from}) => {
 })
 
 socket.on('peer-track', ({ type, streamId }) => {
-  //console.log('received peer-track type: ', type, ' streamId: ', streamId)
+  console.log('peer-track received, streamId:', streamId, 'type:', type)
   videoStreamTypes.set(streamId, type)
 
   const pending = pendingVideoTracks.get(streamId);

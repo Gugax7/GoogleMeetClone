@@ -1,7 +1,6 @@
 import './main.css'
 import { getUserMediaStream, getUserScreenStream } from './util'
-import { joinRoom, onPeerDisconnected, onPeerConnected, setLocalStream, setLocalScreenStream, onPeerShareScreen, onPeerStopSharingScreen } from './connection'
-import { socket } from './socket';
+import { joinRoom, onPeerDisconnected, onPeerConnected, setLocalStream, setLocalScreenStream, onPeerShareScreen, onPeerStopSharingScreen, emitStopScreenShare } from './connection'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <div class="ticks"></div>
@@ -50,6 +49,10 @@ function stopScreenShare() {
   (screenVideo.srcObject as MediaStream)?.getTracks().forEach(t => t.stop());
   screenVideo.srcObject = null;
   overlay.style.display = 'none';
+
+  emitStopScreenShare();
+
+  setLocalScreenStream(null)
 }
 const stream = await getUserMediaStream();
 if(stream) setLocalStream(stream);
@@ -72,8 +75,6 @@ onPeerConnected((socketId, stream) => {
   videoElements.set(socketId,video);
   updateLayout();
 });
-
-console.log("socket listeners: ", socket.listeners('user-connected').length)
 
 onPeerDisconnected((socketId) => {
   const video = videoElements.get(socketId);

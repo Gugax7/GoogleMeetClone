@@ -46,5 +46,9 @@ io.on('connection', (socket) => {
         socket.on('peer-track', (data) => {
             socket.to(room).emit('peer-track', { ...data, from: socket.id });
         })
+
+        socket.on('peer-stop-screen-share', () => {
+            socket.to(room).emit('peer-stop-screen-share', socket.id);
+        })
     })
 })
