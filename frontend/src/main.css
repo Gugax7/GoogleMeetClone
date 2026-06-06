@@ -1,11 +1,5 @@
-#partner-video-section {
-    display: grid;
-    gap: 8px;
-    width: 100%;
-    padding: 8px;
-}
-
-#partner-video-section video{
+/* ── Base video tile ── */
+#partner-video-section video {
     width: 100%;
     aspect-ratio: 16/9;
     object-fit: contain;
@@ -13,10 +7,53 @@
     border-radius: 8px;
 }
 
+/* ── Default layout: normal grid (no screen share active) ── */
+#room-layout {
+    display: flex;
+    width: 100%;
+    height: calc(100vh - 80px);
+    gap: 8px;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+#screen-area {
+    display: none;
+}
+
+#partner-video-section {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    align-content: start;
+}
+
+/* ── Screen-share layout: big left panel + peer strip on right ── */
+#room-layout.screen-sharing #screen-area {
+    display: flex;
+    flex: 3;
+    flex-direction: column;
+    min-width: 0;
+}
+
+#room-layout.screen-sharing #partner-video-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    min-width: 0;
+}
+
+#room-layout.screen-sharing #partner-video-section video {
+    width: 100%;
+    aspect-ratio: 16/9;
+    flex-shrink: 0;
+}
+
+/* ── Screen share videos ── */
 #screen-share-overlay {
-    position: static;
-    inset: 0;
-    background: #000;
+    flex: 1;
     display: flex;
     flex-direction: column;
 }
@@ -25,8 +62,19 @@
     flex: 1;
     width: 100%;
     object-fit: contain;
+    background: #000;
+    border-radius: 8px;
 }
 
+#peers-screen-share video {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: contain;
+    background: #000;
+    border-radius: 8px;
+}
+
+/* ── Buttons ── */
 #stop-share-btn {
     background-color: red;
     width: 300px;
@@ -35,4 +83,14 @@
 #share-screen-btn {
     background-color: green;
     width: 300px;
+}
+
+#controls {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 10;
 }

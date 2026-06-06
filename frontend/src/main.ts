@@ -5,23 +5,27 @@ import { joinRoom, onPeerDisconnected, onPeerConnected, setLocalStream, setLocal
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <div class="ticks"></div>
 
-<section id="partner-video-section">
-  <video id="local-video" autoplay muted/>
-</section>
+<div id="room-layout">
+  <div id="screen-area">
+    <section id="screen-share-overlay" style="display:none">
+    </section>
+    <section id="peers-screen-share"></section>
+  </div>
 
-<section id="screen-share-overlay">
-  <video id="screen-share-video" autoplay/>
-</section>
+  <section id="partner-video-section">
+    <video id="local-video" autoplay muted/>
+  </section>
+</div>
 
-<button id="stop-share-btn">Stop sharing</button>
-<button id="share-screen-btn">Share</button>
-
-<section id="peers-screen-share">
-</section>
+<div id="controls">
+  <button id="stop-share-btn">Stop sharing</button>
+  <button id="share-screen-btn">Share</button>
+</div>
 
 <div class="ticks"></div>
 <section id="spacer"></section>
 `
+
 
 document.querySelector('#share-screen-btn')!.addEventListener('click', async () => {
   const screenStream = await getUserScreenStream();
@@ -29,16 +33,27 @@ document.querySelector('#share-screen-btn')!.addEventListener('click', async () 
 
   const screenTrack = screenStream.getVideoTracks()[0];
   screenTrack.contentHint = 'screenShare';
+  screenTrack.onended = () => stopScreenShare();
 
   setLocalScreenStream(screenStream);
 
   const overlay = document.querySelector<HTMLElement>('#screen-share-overlay')!;
-  const screenVideo = document.querySelector<HTMLVideoElement>('#screen-share-video')!;
+  const screenVideo = document.querySelector<HTMLVideoElement>('#screen-share-video');
 
-  screenVideo.srcObject = screenStream;
+  if(screenVideo){
+    screenVideo.srcObject = screenStream;
+    return;
+  } 
+
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.srcObject = screenStream;
+  video.id='screen-share-video'
+  overlay.appendChild(video);
+
   overlay.style.display = 'flex';
 
-  screenTrack.onended = () => stopScreenShare();
+  updateLayout();
 })
 
 document.querySelector('#stop-share-btn')!.addEventListener('click', () => stopScreenShare());
@@ -48,9 +63,12 @@ function stopScreenShare() {
   const screenVideo = document.querySelector<HTMLVideoElement>('#screen-share-video')!;
   (screenVideo.srcObject as MediaStream)?.getTracks().forEach(t => t.stop());
   screenVideo.srcObject = null;
+  screenVideo.remove()
   overlay.style.display = 'none';
 
   emitStopScreenShare();
+
+  updateLayout();
 
   setLocalScreenStream(null)
 }
@@ -95,8 +113,9 @@ onPeerShareScreen((socketId, stream) => {
   const video = document.createElement('video');
   video.autoplay = true;
   video.srcObject = stream;
-  video.id='screen-share-video';
   document.querySelector('#peers-screen-share')!.appendChild(video);
+
+  updateLayout();
 
   screenShareVideoElements.set(socketId, video);
 })
@@ -104,6 +123,8 @@ onPeerShareScreen((socketId, stream) => {
 onPeerStopSharingScreen((socketId) => {
   const video = screenShareVideoElements.get(socketId);
   video?.remove();
+
+  updateLayout();
 
   screenShareVideoElements.delete(socketId);
 })
@@ -117,6 +138,12 @@ joinRoom();
 function updateLayout() {
   const section = document.querySelector<HTMLElement>('#partner-video-section')!;
   const count = section.querySelectorAll('video').length;
+  section.style.gridTemplateColumns = count <= 3 ? `repeat(${count}, 1fr)` : 'repeat(2, 1fr)';
+  
+  const shareSection = document.querySelector<HTMLElement>('#peers-screen-share')!
+  const peerShares = shareSection.querySelectorAll('video');
+  const isSharingMyScreen = document.querySelector('#screen-share-video') ? true : false;
 
-  section.style.gridTemplateColumns = count <=3 ? `repeat(${count}, 1fr)` : 'repeat(2, 1fr)';
+  const anyShareActive = peerShares.length > 0 || isSharingMyScreen;
+  document.querySelector('#room-layout')!.classList.toggle('screen-sharing', anyShareActive);
 }
