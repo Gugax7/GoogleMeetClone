@@ -18,8 +18,9 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 </div>
 
 <div id="controls">
-  <button id="stop-share-btn">Stop sharing</button>
-  <button id="share-screen-btn">Share</button>
+  <button id="btn-mic" class="control-btn">Mic</button>
+  <button id="btn-camera" class="control-btn">Camera</button>
+  <button id="btn-share" class="control-btn">Share Screen</button>
 </div>
 
 <div class="ticks"></div>
@@ -27,9 +28,16 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 `
 
 
-document.querySelector('#share-screen-btn')!.addEventListener('click', async () => {
+document.querySelector('#btn-share')!.addEventListener('click', async () => {
+  const shareBtn = document.querySelector('#btn-share')!;
+
+  if (shareBtn.classList.contains('sharing')) {
+    stopScreenShare();
+    return;
+  }
+
   const screenStream = await getUserScreenStream();
-  if(!screenStream) return;
+  if (!screenStream) return;
 
   const screenTrack = screenStream.getVideoTracks()[0];
   screenTrack.contentHint = 'screenShare';
@@ -38,42 +46,66 @@ document.querySelector('#share-screen-btn')!.addEventListener('click', async () 
   setLocalScreenStream(screenStream);
 
   const overlay = document.querySelector<HTMLElement>('#screen-share-overlay')!;
-  const screenVideo = document.querySelector<HTMLVideoElement>('#screen-share-video');
-
-  if(screenVideo){
-    screenVideo.srcObject = screenStream;
-    return;
-  } 
-
   const video = document.createElement('video');
   video.autoplay = true;
   video.srcObject = screenStream;
-  video.id='screen-share-video'
+  video.id = 'screen-share-video';
   overlay.appendChild(video);
 
   overlay.style.display = 'flex';
-
+  shareBtn.classList.add('sharing');
+  shareBtn.textContent = 'Stop Sharing';
   updateLayout();
-})
-
-document.querySelector('#stop-share-btn')!.addEventListener('click', () => stopScreenShare());
+});
 
 function stopScreenShare() {
   const overlay = document.querySelector<HTMLElement>('#screen-share-overlay')!;
-  const screenVideo = document.querySelector<HTMLVideoElement>('#screen-share-video')!;
-  (screenVideo.srcObject as MediaStream)?.getTracks().forEach(t => t.stop());
-  screenVideo.srcObject = null;
-  screenVideo.remove()
+  const screenVideo = document.querySelector<HTMLVideoElement>('#screen-share-video');
+  if (screenVideo) {
+    (screenVideo.srcObject as MediaStream)?.getTracks().forEach(t => t.stop());
+    screenVideo.srcObject = null;
+    screenVideo.remove();
+  }
   overlay.style.display = 'none';
 
   emitStopScreenShare();
+  setLocalScreenStream(null);
+
+  const shareBtn = document.querySelector('#btn-share')!;
+  shareBtn.classList.remove('sharing');
+  shareBtn.textContent = 'Share Screen';
 
   updateLayout();
-
-  setLocalScreenStream(null)
 }
+
 const stream = await getUserMediaStream();
 if(stream) setLocalStream(stream);
+
+const micBtn = document.querySelector('#btn-mic')!;
+const cameraBtn = document.querySelector('#btn-camera')!;
+
+const audioTrack = stream?.getAudioTracks()[0];
+const videoTrack = stream?.getVideoTracks()[0];
+
+if (audioTrack) {
+  micBtn.addEventListener('click', () => {
+    audioTrack.enabled = !audioTrack.enabled;
+    micBtn.classList.toggle('off', !audioTrack.enabled);
+    micBtn.textContent = audioTrack.enabled ? 'Mic' : 'Mic OFF';
+  });
+} else {
+  (micBtn as HTMLButtonElement).disabled = true;
+}
+
+if (videoTrack) {
+  cameraBtn.addEventListener('click', () => {
+    videoTrack.enabled = !videoTrack.enabled;
+    cameraBtn.classList.toggle('off', !videoTrack.enabled);
+    cameraBtn.textContent = videoTrack.enabled ? 'Camera' : 'Camera OFF';
+  });
+} else {
+  (cameraBtn as HTMLButtonElement).disabled = true;
+}
 
 const videoElements = new Map<string, HTMLVideoElement>();
 
